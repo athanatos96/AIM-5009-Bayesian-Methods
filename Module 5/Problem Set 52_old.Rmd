@@ -1,0 +1,102 @@
+---
+title: "Problem Set 5.2"
+author: "Alex Parra & Atreish Ramlakhan"
+date: "8/3/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(rstan)
+library(bayesplot)
+```
+
+
+# Problem 5.6 #
+
+```{r}
+
+# Plot the Gamma(10, 2) prior
+plot_gamma(shape = 10, rate = 2)
+
+plot_poisson_likelihood(y = c(6, 2, 2, 1), lambda_upper_bound = 10)
+
+
+plot_gamma_poisson(shape = 10, rate = 2, sum_y = 11, n = 4)
+
+summarize_gamma_poisson(shape = 10, rate = 2, sum_y = 11, n = 4)
+```
+
+
+# Problem 6.6 #
+
+Part a
+```{r}
+# Step 1: Define a grid of 6 pi values
+grid_data <- data.frame(lambda_grid = seq(from = 0, to = 8, length = 9))
+
+# Step 2: Evaluate the prior & likelihood at each pi
+grid_data <- grid_data %>% 
+  mutate(prior = dgamma(lambda_grid, 20, 5),
+         likelihood = dpois(0, lambda_grid)*dpois(1, lambda_grid)*dpois(0, lambda_grid))
+# dpois
+
+
+# Step 3: Approximate the posterior
+grid_data <- grid_data %>% 
+  mutate(unnormalized = likelihood * prior,
+         posterior = unnormalized / sum(unnormalized))
+
+# Confirm that the posterior approximation sums to 1
+grid_data %>% 
+  summarize(sum(unnormalized), sum(posterior))
+sum(grid_data['unnormalized']) 
+sum(grid_data['posterior'])
+
+#Table 
+round(grid_data, 2)
+
+# Plot the grid approximated posterior
+ggplot(grid_data, aes(x = lambda_grid, y = posterior)) + 
+  geom_point() + 
+  geom_segment(aes(x = lambda_grid, xend = lambda_grid, y = 0, yend = posterior))
+```
+
+
+Part b
+```{r}
+# Step 1: Define a grid of 6 pi values
+grid_data <- data.frame(lambda_grid = seq(from = 0, to = 8, length = 201))
+
+# Step 2: Evaluate the prior & likelihood at each pi
+grid_data <- grid_data %>% 
+  mutate(prior = dgamma(lambda_grid, 20, 5),
+         likelihood = dpois(0, lambda_grid)*dpois(1, lambda_grid)*dpois(0, lambda_grid))
+# dpois
+
+
+# Step 3: Approximate the posterior
+grid_data <- grid_data %>% 
+  mutate(unnormalized = likelihood * prior,
+         posterior = unnormalized / sum(unnormalized))
+
+# Confirm that the posterior approximation sums to 1
+grid_data %>% 
+  summarize(sum(unnormalized), sum(posterior))
+sum(grid_data['unnormalized']) 
+sum(grid_data['posterior'])
+
+#Table 
+round(grid_data, 2)
+
+# Plot the grid approximated posterior
+ggplot(grid_data, aes(x = lambda_grid, y = posterior)) + 
+  geom_point() + 
+  geom_segment(aes(x = lambda_grid, xend = lambda_grid, y = 0, yend = posterior))
+```

@@ -1,0 +1,223 @@
+---
+title: "Problem Set 53"
+author: "Alex Parra & Atreish Ramlakhan"
+date: "12/3/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(bayesrules)
+library(tidyverse)
+library(janitor)
+library(rstan)
+```
+
+
+# Problem 5.10 #
+
+```{r}
+  
+#A. Plot the corresponding likelihood function of Mu.
+plot_normal_likelihood(y=c(-0.7,1.2,4.5,-4),sigma=0.5)
+
+#B. Plot the prior pdf, likelihood function, and the posterior pdf for ??
+plot_normal_normal(mean=7.2,sd=2.6, sigma=2,y_bar=1,n=4)
+
+#C. Use summarize_normal_normal() to calculate descriptive statistics for 
+#the prior and the posterior models.
+
+summarize_normal_normal(mean=7.2,sd=2.6, sigma=2,y_bar=1,n=4)
+
+#D. Comment on how your understanding about ?? evolved from the prior 
+#(in the previous exercise) to the posterior based on the observed data.
+
+#In the prior model the mean was about 7.2 with alot of variability ~6.76,
+#but in the posterior we are much more confident that the mean is less 
+#about 1.8 with variance ~.87
+
+#E. What is the posterior probability that, on average, the stock price goes 
+#down? Hint: pnorm()
+
+pnorm(0,mean=1.798969, sd=.9333456, lower.tail = TRUE, log.p = FALSE)
+
+#F. What is the posterior probability that, on average, your stock price goes 
+#up by more than 8 dollars per day?
+
+pnorm(8,mean=1.798969, sd=.9333456, lower.tail = FALSE, log.p = FALSE)
+
+```
+
+# Problem 5.11 #
+
+```{r}
+
+#A. Prof. Abebe conducts the final exam and observes that his 32 students
+#scored an average of 86 points. Calculate the posterior mean and var of ??
+#using the data from Prof. Abebe's class.
+
+summarize_normal_normal(mean=80,sd=16, sigma=3,y_bar=86,n=32)
+
+#B. Prof. Morales conducts the final exam and observes that her 32 students
+#scored an average of 82 points. Calculate the posterior mean and var of ??
+#using the data from Prof. Morales' class.
+
+summarize_normal_normal(mean=80,sd=16, sigma=3,y_bar=82,n=32)
+
+#C. Next, use Prof. Abebe and Prof. Morales' combined exams to calculate 
+#the posterior mean and variance of ??
+
+summarize_normal_normal(mean=80,sd=16, sigma=3,y_bar=84,n=64)
+
+```
+
+# Problem 6.7 #
+
+Part A
+```{r}
+grid_data   <- data.frame(mu_grid = seq(from = 5, to = 15, length = 10))
+
+grid_data <- grid_data %>% 
+  mutate(prior = dnorm(mu_grid, 10, 1.44),
+         likelihood = dnorm(10,1.69))
+
+grid_data <- grid_data %>% 
+  mutate(unnormalized = likelihood * prior,
+         posterior = unnormalized / sum(unnormalized))
+
+set.seed(5)
+post_sample <- sample_n(grid_data, size = 10000, 
+                        weight = posterior, replace = TRUE)
+
+ggplot(post_sample, aes(x = mu_grid)) + 
+  geom_histogram(aes(y = ..density..), color = "white") + 
+  stat_function(fun = dnorm, args = list(10, 1.44)) + 
+  lims(x = c(5, 15))
+```
+
+Part B
+```{r}
+grid_data   <- data.frame(mu_grid = seq(from = 5, to = 15, length = 201))
+
+grid_data <- grid_data %>% 
+  mutate(prior = dnorm(mu_grid, 10, 1.44),
+         likelihood = dnorm(10,1.69))
+
+grid_data <- grid_data %>% 
+  mutate(unnormalized = likelihood * prior,
+         posterior = unnormalized / sum(unnormalized))
+
+set.seed(5)
+post_sample <- sample_n(grid_data, size = 10000, 
+                        weight = posterior, replace = TRUE)
+
+ggplot(post_sample, aes(x = mu_grid)) + 
+  geom_histogram(aes(y = ..density..), color = "white") + 
+  stat_function(fun = dnorm, args = list(10, 1.44)) + 
+  lims(x = c(5, 15))
+```
+
+
+# Problem 6.17 #
+```{r}
+# STEP 1: DEFINE the model
+nn_model <- "
+  data {
+    real Y[4];
+  }
+  parameters {
+    real mu;
+  }
+  model {
+    Y ~ normal(mu, 1.69);
+    mu ~ normal(10, 1.44);
+  }
+"
+# STEP 2: SIMULATE the posterior
+nn_sim <- stan(model_code = nn_model, data = list(Y = c(7.1,8.9,8.4,8.6)), 
+               chains = 4, iter = 5000*2)
+
+as.array(nn_sim, pars = "mu") %>% 
+  head(4)
+
+# Trace plots of the 4 Markov chains
+mcmc_trace(nn_sim, pars = "mu", size = 0.1)
+
+# Histogram of the Markov chain values
+mcmc_hist(nn_sim, pars = "mu") + 
+  yaxis_text(TRUE) + 
+  ylab("count")
+
+# Density plot of the Markov chain values
+mcmc_dens(nn_sim, pars = "mu") + 
+  yaxis_text(TRUE) + 
+  ylab("density")
+```
+
+c) From the density plots, what seems to be the most posterior plausible value of μ?
+  
+  the MCMC aproximation of the posterior model μ is 8.75-8.85
+
+d) Hearkening back to Chapter 5, specify the posterior model of μ. How does your MCMC approximation compare?
+
+```{r}
+plot_normal_normal(mean = 10, sd = 1.2, sigma = 1.3, y_bar = 8.25, n = 4)
+```
+
+In the plot_normal_normal(), the density is around 8.75-8.85. And in our simulation we got 8.75-8.85.
+The green posterior and the MCMC density plots look very similar
+
+
+# Problem 6.18 #
+```{r}
+# STEP 1: DEFINE the model
+nn_model <- "
+  data {
+    real Y[5];
+  }
+  parameters {
+    real mu;
+  }
+  model {
+    Y ~ normal(mu, 64);
+    mu ~ normal(-14, 4);
+  }
+"
+
+
+# STEP 2: SIMULATE the posterior
+nn_sim <- stan(model_code = nn_model, data = list(Y = c(-10.1,5.5,0.1,-1.4,11.5)), 
+               chains = 4, iter = 5000*2)
+
+as.array(nn_sim, pars = "mu") %>% 
+  head(4)
+
+# Trace plots of the 4 Markov chains
+mcmc_trace(nn_sim, pars = "mu", size = 0.1)
+
+# Histogram of the Markov chain values
+mcmc_hist(nn_sim, pars = "mu") + 
+  yaxis_text(TRUE) + 
+  ylab("count")
+
+# Density plot of the Markov chain values
+mcmc_dens(nn_sim, pars = "mu") + 
+  yaxis_text(TRUE) + 
+  ylab("density")
+```
+
+c) From the density plots, what seems to be the most posterior plausible value of μ?
+  
+  the MCMC aproximation of the posterior model μ is -12 and -13
+
+d) Hearkening back to Chapter 5, specify the posterior model of μ. How does your MCMC approximation compare?
+
+```{r}
+plot_normal_normal(mean = -14, sd = 2, sigma = 8, y_bar = 1.14, n = 5)
+```
+In the plot_normal_normal(), the density is around -12. And in our simulation we got -12 and -13.
+The green posterior and the MCMC density plots look very similar

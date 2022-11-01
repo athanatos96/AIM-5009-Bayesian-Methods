@@ -1,0 +1,276 @@
+---
+title: "Problem Set 52"
+author: "Alex Parra & Atreish Ramlakhan"
+date: "12/3/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(bayesrules)
+library(tidyverse)
+library(janitor)
+library(rstan)
+```
+```{r}
+install.packages('fivethirtyeight')
+library(fivethirtyeight)
+install.packages('fivethirtyeightdata')
+```
+
+
+# Problem 5.5 #
+```{r}
+#A.) Tune and plot an appropriate Gamma(s,r) prior model for ??.  
+plot_gamma(shape=10,rate=2) 
+plot_gamma(shape=5, rate=1)
+
+#This is the best to have most likely ??=5
+plot_gamma(shape=15,rate=3)
+
+#B.What is the prior probability that the rate of text messages per 
+#hour is larger than 10? Hint: learn about pgamma() 
+
+pgamma(q=10, shape=15, scale=3)
+```
+
+
+# Problem 5.6 #
+```{r}
+#A. They received 7, 3, 8, 9, 10, 12 text messages in the previous hour.
+#Plot the resulting likelihood function of ??.
+  
+plot_poisson_likelihood(y=c(7,3,8,9,10,12), lambda_upper_bound=15)
+
+#B. Plot the prior pdf, likelihood function, and the posterior pdf of ??.
+
+plot_gamma_poisson(shape=15,rate=3,sum_y=49, n=6)
+
+#C. Use summarize_gamma_poisson() to calculate descriptive statistics 
+#for the prior and the posterior models of  ??
+
+summarize_gamma_poisson(shape=15,rate=3,sum_y=49, n=6)
+
+#D. Comment on how your understanding about  ?? changed from the prior 
+#(in the previous exercise) to the posterior based on the data you 
+#collected from your friends.
+
+#In the previous 5.5 we same a lambda close to 5 and with the addition of 
+#the new survey data we see that the posterior is more likely around 7.5
+```
+
+# Problem 5.7 #
+```{r}
+#A. Plot and summarize our prior understanding of ??
+plot_gamma(1,.25)
+
+#B. Why is the Poisson model a reasonable choice for our data Y_i?
+
+#This variable of interest is a natural number that becomes increasingly 
+#less likely as the numbers grow and can theoretically but not likely be
+#a large number; these features are Poisson is a good fit for that model.
+
+#C. The wwc_2019_matches data in the fivethirtyeight package includes the 
+#number of goals scored by the two teams in each 2019 Women's World Cup 
+#match. Define, plot, and discuss the total number of goals scored per game:
+
+data("wwc_2019_matches")
+wwc_2019_matches <- wwc_2019_matches %>% 
+  mutate(total_goals = score1 + score2)
+
+wwc_2019_matches
+
+#D. Identify the posterior model of ?? and verify your answer using 
+#summarize_gamma_poisson()
+
+#E. Plot the prior pdf, likelihood function, and posterior pdf of ??. 
+#Describe the evolution in your understanding of ?? from the prior to 
+#the posterior.
+```
+
+
+
+
+# Problem 6.6 #
+
+Part A
+```{r}
+# Step 1: Define a grid of 6 pi values
+grid_data <- data.frame(lambda_grid = seq(from = 0, to = 8, length = 9))
+
+# Step 2: Evaluate the prior & likelihood at each pi
+grid_data <- grid_data %>% 
+  mutate(prior = dgamma(lambda_grid, 20, 5),
+         likelihood = dpois(0, lambda_grid)*dpois(1, lambda_grid)*dpois(0, lambda_grid))
+
+# Step 3: Approximate the posterior
+grid_data <- grid_data %>% 
+  mutate(unnormalized = likelihood * prior,
+         posterior = unnormalized / sum(unnormalized))
+
+# Confirm that the posterior approximation sums to 1
+grid_data %>% 
+  summarize(sum(unnormalized), sum(posterior))
+
+
+#Table 
+round(grid_data, 2)
+
+# Plot the grid approximated posterior
+ggplot(grid_data, aes(x = lambda_grid, y = posterior)) + 
+  geom_point() + 
+  geom_segment(aes(x = lambda_grid, xend = lambda_grid, y = 0, yend = posterior))
+
+set.seed(5)
+# Step 4: sample from the discretized posterior
+post_sample <- sample_n(grid_data, size = 10000, 
+                        weight = posterior, replace = TRUE)
+
+# Histogram of the grid simulation with posterior pdf 
+ggplot(post_sample, aes(x = lambda_grid)) + 
+  geom_histogram(aes(y = ..density..), color = "white") + 
+  stat_function(fun = dgamma, args = list(21, 8)) + 
+  lims(x = c(0, 8))
+```
+
+Part B
+```{r}
+# Step 1: Define a grid of 6 pi values
+grid_data <- data.frame(lambda_grid = seq(from = 0, to = 8, length = 201))
+
+# Step 2: Evaluate the prior & likelihood at each pi
+grid_data <- grid_data %>% 
+  mutate(prior = dgamma(lambda_grid, 20, 5),
+         likelihood = dpois(0, lambda_grid)*dpois(1, lambda_grid)*dpois(0, lambda_grid))
+
+
+# Step 3: Approximate the posterior
+grid_data <- grid_data %>% 
+  mutate(unnormalized = likelihood * prior,
+         posterior = unnormalized / sum(unnormalized))
+
+# Confirm that the posterior approximation sums to 1
+grid_data %>% 
+  summarize(sum(unnormalized), sum(posterior))
+
+
+#Table 
+round(grid_data, 2)
+
+# Plot the grid approximated posterior
+ggplot(grid_data, aes(x = lambda_grid, y = posterior)) + 
+  geom_point() + 
+  geom_segment(aes(x = lambda_grid, xend = lambda_grid, y = 0, yend = posterior))
+
+set.seed(5)
+# Step 4: sample from the discretized posterior
+post_sample <- sample_n(grid_data, size = 10000, 
+                        weight = posterior, replace = TRUE)
+
+# Histogram of the grid simulation with posterior pdf 
+ggplot(post_sample, aes(x = lambda_grid)) + 
+  geom_histogram(aes(y = ..density..), color = "white") + 
+  stat_function(fun = dgamma, args = list(21, 8)) + 
+  lims(x = c(0, 8))
+```
+
+# Problem 6.15 #
+
+```{r}
+# STEP 1: DEFINE the model
+gp_model <- "
+  data {
+    int<lower = 0> Y[3];
+  }
+  parameters {
+    real<lower = 0> lambda;
+  }
+  model {
+    Y ~ poisson(lambda);
+    lambda ~ gamma(20, 5);
+  }
+"
+
+# STEP 2: SIMULATE the posterior
+gp_sim <- stan(model_code = gp_model, data = list(Y = c(0,1,0)), 
+               chains = 4, iter = 5000*2, seed = 1)
+
+as.array(gp_sim, pars = "lambda") %>% 
+  head(4)
+
+# Trace plots of the 4 Markov chains
+mcmc_trace(gp_sim, pars = "lambda", size = 0.1)
+
+# Histogram of the Markov chain values
+mcmc_hist(gp_sim, pars = "lambda") + 
+  yaxis_text(TRUE) + 
+  ylab("count")
+
+# Density plot of the Markov chain values
+mcmc_dens(gp_sim, pars = "lambda") + 
+  yaxis_text(TRUE) + 
+  ylab("density")
+```
+
+c) From the density plots, what seems to be the most posterior plausible value of λ?
+ the MCMC aproximation of the posterior model λ is 2.5
+
+d) Hearkening back to Chapter 5, specify the posterior model of λ . How does your MCMC approximation compare?
+
+```{r}
+plot_gamma_poisson(shape=20, rate=5, sum_y = 1, n=3)
+```
+In the plot_gamma_poisson(), the density is around 2.5. And in our simulation we got 2.5
+
+
+# Problem 6.16 #
+
+```{r}
+# STEP 1: DEFINE the model
+gp_model <- "
+  data {
+    int<lower = 0> Y[3];
+  }
+  parameters {
+    real<lower = 0> lambda;
+  }
+  model {
+    Y ~ poisson(lambda);
+    lambda ~ gamma(5, 5);
+  }
+"
+
+# STEP 2: SIMULATE the posterior
+gp_sim <- stan(model_code = gp_model, data = list(Y = c(0,1,0)), 
+               chains = 4, iter = 5000*2, seed = 1)
+
+as.array(gp_sim, pars = "lambda") %>% 
+  head(4)
+
+# Trace plots of the 4 Markov chains
+mcmc_trace(gp_sim, pars = "lambda", size = 0.1)
+
+# Histogram of the Markov chain values
+mcmc_hist(gp_sim, pars = "lambda") + 
+  yaxis_text(TRUE) + 
+  ylab("count")
+
+# Density plot of the Markov chain values
+mcmc_dens(gp_sim, pars = "lambda") + 
+  yaxis_text(TRUE) + 
+  ylab("density")
+```
+
+c) From the density plots, what seems to be the most posterior plausible value of λ?
+
+ the MCMC aproximation of the posterior model λ is 0.6 - 0.7
+
+d) Hearkening back to Chapter 5, specify the posterior model of λ . How does your MCMC approximation compare?
+
+```{r}
+plot_gamma_poisson(shape=5, rate=5, sum_y = 1, n=3)
+```
+In the plot_gamma_poisson(), the density is around 0.6 - 0.7. And in our simulation we got 0.6 - 0.7
